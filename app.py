@@ -46,34 +46,29 @@ def calcular_curto():
         icc_min_sim = net.res_bus_sc.ikss_ka.at[b_cliente] * 1000
 
         # -----------------------------------------------------
-        # CÁLCULO DE ASSIMETRIA (Conforme Manual)
+        # CÁLCULO DE ASSIMETRIA
         # -----------------------------------------------------
-        # 1. Impedância da Rede (Referida a 13.8kV)
         z_grid = (13.8**2) / 1000.0
         r_grid = z_grid * 0.1
         x_grid = z_grid * 0.995 
         
-        # 2. Impedância do Trafo (15 MVA, 13.8kV)
         z_base_trafo = (13.8**2) / 15.0
-        r_trafo = z_base_trafo * 0.005 # vkr_percent = 0.5%
-        x_trafo = z_base_trafo * 0.0998 # vk_percent = 10%
+        r_trafo = z_base_trafo * 0.005
+        x_trafo = z_base_trafo * 0.0998 
         
-        # 3. Impedância da Linha
         r_linha = 0.17 * comprimento_linha
         x_linha = 0.38 * comprimento_linha
         
-        # Somatório do trajeto
         r_total = r_grid + r_trafo + r_linha
         x_total = x_grid + x_trafo + x_linha
         rx_ratio = r_total / x_total if x_total > 0 else 0
         
-        # Fator de Assimetria Fa = sqrt(1 + 2 * e^(-2 * pi * R/X))
         fa = math.sqrt(1 + 2 * math.exp(-2 * math.pi * rx_ratio))
         
-        # Correntes Assimétricas
         icc_max_assim = icc_max_sim * fa
         icc_min_assim = icc_min_sim * fa
 
+        # O JSON agora envia as chaves corretas que o HTML espera
         return jsonify({
             "status": "sucesso",
             "icc_max_sim_a": round(icc_max_sim, 2),
