@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Coordenograma - Integração API</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; display: flex; margin: 0; padding: 20px; background-color: #f4f4f9; gap: 20px; align-items: flex-start; }
+        .painel-controles { width: 320px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); max-height: calc(100vh - 40px); overflow-y: auto; }
+        .grafico-container { flex-grow: 1; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .bloco { border: 1px solid #e0e0e0; border-radius: 6px; padding: 14px; margin-bottom: 16px; }
+        .bloco h2 { font-size: 15px; margin: 0 0 10px 0; display: flex; align-items: center; gap: 8px; }
+        .cor-tag { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
+        label { font-weight: bold; display: block; margin-top: 10px; font-size: 13px; color: #333; }
+        .valor-inline { font-weight: normal; color: #0052cc; }
+        input[type="range"], input[type="number"], select { width: 100%; margin-top: 4px; padding: 4px; font-size: 13px; }
+        .linha-dupla { display: flex; gap: 8px; }
+        .linha-dupla > div { flex: 1; }
+        .toggle-row { display: flex; align-items: center; gap: 6px; margin-top: 10px; }
+        .toggle-row label { margin: 0; }
+        .resultado-seletividade { margin-top: 10px; padding: 10px; border-radius: 6px; font-size: 13px; font-weight: bold; text-align: center; }
+        .ok { background: #e3f7e8; color: #1e7d34; border: 1px solid #1e7d34; }
+        .fail { background: #fdeaea; color: #c0392b; border: 1px solid #c0392b; }
+        .neutro { background: #f0f0f0; color: #555; border: 1px solid #ccc; }
+        .info-tempos { font-size: 12px; color: #444; margin-top: 6px; line-height: 1.6; }
+        p.dica { font-size: 12px; color: #666; }
+    </style>
+</head>
+<body>
+
+    <div class="painel-controles">
+        <div class="bloco">
+            <h2><span class="cor-tag" style="background:#0052cc;"></span>Relé A (Principal)</h2>
+            <label for="a_curva">Curva de Proteção</label>
+            <select id="a_curva">
+                <option value="IEC-NI">IEC Normal Inversa</option>
+                <option value="IEC-MI">IEC Muito Inversa</option>
+                <option value="IEC-EI">IEC Extremamente Inversa</option>
+                <option value="ANSI-MI">ANSI Moderadamente Inversa</option>
+                <option value="ANSI-VI">ANSI Muito Inversa</option>
+                <option value="ANSI-EI">ANSI Extremamente Inversa</option>
+            </select>
+            <label>Pickup (A): <span class="valor-inline" id="a_valPickup">100</span></label>
+            <input type="range" id="a_pickup" min="10" max="1000" step="10" value="100">
+            <label>TMS (Dial de Tempo): <span class="valor-inline" id="a_valTms">0.5</span></label>
+            <input type="range" id="a_tms" min="0.05" max="1.0" step="0.05" value="0.5">
+            <div class="toggle-row">
+                <input type="checkbox" id="a_instHabilita">
+                <label for="a_instHabilita">Habilitar instantâneo</label>
+            </div>
+            <div class="linha-dupla">
+                <div><label for="a_instPickup">Instantâneo (A)</label><input type="number" id="a_instPickup" value="4000"></div>
+                <div><label for="a_instTempo">T. inst. (s)</label><input type="number" id="a_instTempo" value="0.20" step="0.01"></div>
+            </div>
+        </div>
+
+        <div class="bloco">
+            <h2><span class="cor-tag" style="background:#c0392b;"></span>Relé B (Retaguarda)</h2>
+            <div class="toggle-row">
+                <input type="checkbox" id="b_habilita" checked>
+                <label for="b_habilita">Exibir Relé B</label>
+            </div>
+            <label for="b_curva">Curva de Proteção</label>
+            <select id="b_curva">
+                <option value="IEC-NI">IEC Normal Inversa</option>
+                <option value="IEC-MI" selected>IEC Muito Inversa</option>
+                <option value="IEC-EI">IEC Extremamente Inversa</option>
+                <option value="ANSI-MI">ANSI Moderadamente Inversa</option>
+                <option value="ANSI-VI">ANSI Muito Inversa</option>
+                <option value="ANSI-EI">ANSI Extremamente Inversa</option>
+            </select>
+            <label>Pickup (A): <span class="valor-inline" id="b_valPickup">40</span></label>
+            <input type="range" id="b_pickup" min="10" max="1000" step="10" value="40">
+            <label>TMS (Dial de Tempo): <span class="valor-inline" id="b_valTms">0.4</span></label>
+            <input type="range" id="b_tms" min="0.05" max="1.0" step="0.05" value="0.4">
+            <div class="toggle-row">
+                <input type="checkbox" id="b_instHabilita">
+                <label for="b_instHabilita">Habilitar instantâneo</label>
+            </div>
+            <div class="linha-dupla">
+                <div><label for="b_instPickup">Instantâneo (A)</label><input type="number" id="b_instPickup" value="400"></div>
+                <div><label for="b_instTempo">T. inst. (s)</label><input type="number" id="b_instTempo" value="0.10" step="0.01"></div>
+            </div>
+        </div>
+
+        <div class="bloco">
+            <h2><span class="cor-tag" style="background:#7f8c8d;"></span>Concessionária (Fusível)</h2>
+            <div class="toggle-row">
+                <input type="checkbox" id="c_habilita" checked>
+                <label for="c_habilita">Exibir curva</label>
+            </div>
+            <label>Pickup / Elom (A): <span class="valor-inline" id="c_valPickup">400</span></label>
+            <input type="range" id="c_pickup" min="10" max="1000" step="10" value="400">
+            <label>TMS (Dial de Tempo): <span class="valor-inline" id="c_valTms">1.0</span></label>
+            <input type="range" id="c_tms" min="0.05" max="2.0" step="0.05" value="1.0">
+        </div>
+
+        <div class="bloco">
+            <h2>Análise de Seletividade</h2>
+            <label for="icc_falta">Icc no ponto de falta (A)</label>
+            <input type="number" id="icc_falta" value="1422" step="10">
+            <label for="margem_min">Margem de coordenação Δt (s)</label>
+            <input type="number" id="margem_min" value="0.2" step="0.05">
+            <div class="info-tempos" id="infoTempos"></div>
+            <div class="resultado-seletividade neutro" id="resultadoSeletividade">—</div>
+        </div>
+
+        <div class="bloco" style="border-color: #27ae60;">
+            <h2><span class="cor-tag" style="background:#27ae60;"></span>Rede Elétrica (Simulador)</h2>
+            <p class="dica" style="margin-top: 0;">Conectado à API Flask + Pandapower</p>
+            <label for="linha_km">Comprimento do Tronco (km):</label>
+            <input type="number" id="linha_km" value="5.0" step="0.5">
+            <button id="btn_calcular_curto" style="width: 100%; margin-top: 15px; padding: 10px; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                Calcular Curto (Buscar no Servidor)
+            </button>
+        </div>
+    </div>
+
+    <div class="grafico-container">
+        <div id="coordenograma" style="width:100%; height:750px;"></div>
+    </div>
+
+    <script>
+        const FAMILIAS_CURVA = {
+            'IEC-NI': { nome: 'IEC Normal Inversa',        A: 0.14,  B: 0,      p: 0.02 },
+            'IEC-MI': { nome: 'IEC Muito Inversa',         A: 13.5,  B: 0,      p: 1.0  },
+            'IEC-EI': { nome: 'IEC Extremamente Inversa',  A: 80.0,  B: 0,      p: 2.0  },
+            'ANSI-MI': { nome: 'ANSI Moderadamente Inversa', A: 0.0515, B: 0.1140, p: 0.02 },
+            'ANSI-VI': { nome: 'ANSI Muito Inversa',         A: 19.61,  B: 0.491,  p: 2.0  },
+            'ANSI-EI': { nome: 'ANSI Extremamente Inversa',  A: 28.2,   B: 0.1217, p: 2.0  },
+        };
+
+        function tempoAtuacao(i, pickup, tms, curveKey) {
+            if (i <= pickup) return null;
+            const c = FAMILIAS_CURVA[curveKey];
+            const razao = i / pickup;
+            return tms * (c.A / (Math.pow(razao, c.p) - 1) + c.B);
+        }
+
+        function calcularCurva(pickup, tms, curveKey, instHabilita, instPickup, instTempo, correnteMax = 20000) {
+            let x = [], y = [];
+            let correnteInicial = pickup * 1.02;
+            const limiteSuperior = (instHabilita && instPickup > pickup) ? instPickup : correnteMax;
+
+            for (let i = correnteInicial; i <= limiteSuperior; i += Math.max(1, i * 0.01)) {
+                const t = tempoAtuacao(i, pickup, tms, curveKey);
+                if (t === null || !isFinite(t) || t <= 0) continue;
+                x.push(i); y.push(t);
+            }
+
+            if (instHabilita && instPickup > pickup) {
+                x.push(instPickup); y.push(instTempo);
+                x.push(correnteMax); y.push(instTempo);
+            }
+            return { x, y };
+        }
+
+        const el = (id) => document.getElementById(id);
+        const campos = {
+            a: { curva: el('a_curva'), pickup: el('a_pickup'), tms: el('a_tms'), valPickup: el('a_valPickup'), valTms: el('a_valTms'), instHab: el('a_instHabilita'), instPickup: el('a_instPickup'), instTempo: el('a_instTempo') },
+            b: { habilita: el('b_habilita'), curva: el('b_curva'), pickup: el('b_pickup'), tms: el('b_tms'), valPickup: el('b_valPickup'), valTms: el('b_valTms'), instHab: el('b_instHabilita'), instPickup: el('b_instPickup'), instTempo: el('b_instTempo') },
+            c: { habilita: el('c_habilita'), pickup: el('c_pickup'), tms: el('c_tms'), valPickup: el('c_valPickup'), valTms: el('c_valTms') }
+        };
+        const iccFaltaInput = el('icc_falta');
+        const margemMinInput = el('margem_min');
+        const infoTempos = el('infoTempos');
+        const resultadoDiv = el('resultadoSeletividade');
+
+        function atualizarGrafico() {
+            campos.a.valPickup.innerText = campos.a.pickup.value;
+            campos.a.valTms.innerText = campos.a.tms.value;
+            campos.b.valPickup.innerText = campos.b.pickup.value;
+            campos.b.valTms.innerText = campos.b.tms.value;
+            campos.c.valPickup.innerText = campos.c.pickup.value;
+            campos.c.valTms.innerText = campos.c.tms.value;
+
+            const pA = parseFloat(campos.a.pickup.value), tA = parseFloat(campos.a.tms.value), curvaA = campos.a.curva.value, instHabA = campos.a.instHab.checked, instPickupA = parseFloat(campos.a.instPickup.value), instTempoA = parseFloat(campos.a.instTempo.value);
+            const pB = parseFloat(campos.b.pickup.value), tB = parseFloat(campos.b.tms.value), curvaB = campos.b.curva.value, instHabB = campos.b.instHab.checked, instPickupB = parseFloat(campos.b.instPickup.value), instTempoB = parseFloat(campos.b.instTempo.value);
+            const pC = parseFloat(campos.c.pickup.value), tC = parseFloat(campos.c.tms.value);
+
+            const traces = [];
+            const curvaAData = calcularCurva(pA, tA, curvaA, instHabA, instPickupA, instTempoA);
+            traces.push({ x: curvaAData.x, y: curvaAData.y, mode: 'lines', name: `Relé A (${FAMILIAS_CURVA[curvaA].nome})`, line: { color: '#0052cc', width: 2.5 } });
+
+            if (campos.b.habilita.checked) {
+                const curvaBData = calcularCurva(pB, tB, curvaB, instHabB, instPickupB, instTempoB);
+                traces.push({ x: curvaBData.x, y: curvaBData.y, mode: 'lines', name: `Relé B (${FAMILIAS_CURVA[curvaB].nome})`, line: { color: '#c0392b', width: 2.5 } });
+            }
+
+            if (campos.c.habilita.checked) {
+                const curvaCData = calcularCurva(pC, tC, 'IEC-NI', false, 0, 0);
+                traces.push({ x: curvaCData.x, y: curvaCData.y, mode: 'lines', name: 'Concessionária', line: { color: '#7f8c8d', width: 2, dash: 'dash' } });
+            }
+
+            const iccFalta = parseFloat(iccFaltaInput.value);
+            if (iccFalta > 0) {
+                traces.push({ x: [iccFalta, iccFalta], y: [0.001, 1000], mode: 'lines', name: `Icc (${iccFalta} A)`, line: { color: '#27ae60', width: 1.5, dash: 'dot' }, hoverinfo: 'skip' });
+            }
+
+            const layout = { title: 'Coordenograma de Proteção', xaxis: { title: 'Corrente (A)', type: 'log', range: [0, 4], gridcolor: '#e0e0e0', dtick: 'D1' }, yaxis: { title: 'Tempo (s)', type: 'log', range: [-2, 2], gridcolor: '#e0e0e0', dtick: 'D1' }, plot_bgcolor: '#ffffff', paper_bgcolor: '#ffffff', legend: { orientation: 'h', y: -0.15 } };
+            Plotly.newPlot('coordenograma', traces, layout);
+            atualizarSeletividade(pA, tA, curvaA, instHabA, instPickupA, instTempoA, pB, tB, curvaB, instHabB, instPickupB, instTempoB);
+        }
+
+        function tempoComInstantaneo(i, pickup, tms, curveKey, instHab, instPickup, instTempo) {
+            if (instHab && i >= instPickup) return instTempo;
+            return tempoAtuacao(i, pickup, tms, curveKey);
+        }
+
+        function atualizarSeletividade(pA, tA, curvaA, instHabA, instPickupA, instTempoA, pB, tB, curvaB, instHabB, instPickupB, instTempoB) {
+            const icc = parseFloat(iccFaltaInput.value), margemMin = parseFloat(margemMinInput.value);
+            const tempoA = tempoComInstantaneo(icc, pA, tA, curvaA, instHabA, instPickupA, instTempoA);
+            const tempoBAtivo = campos.b.habilita.checked;
+            const tempoB = tempoBAtivo ? tempoComInstantaneo(icc, pB, tB, curvaB, instHabB, instPickupB, instTempoB) : null;
+
+            let linhas = [];
+            linhas.push(`Relé A: ${tempoA !== null ? tempoA.toFixed(3) + ' s' : 'não sensibiliza'}`);
+            if (tempoBAtivo) linhas.push(`Relé B: ${tempoB !== null ? tempoB.toFixed(3) + ' s' : 'não sensibiliza'}`);
+            infoTempos.innerHTML = linhas.join('<br>');
+
+            if (!tempoBAtivo) { resultadoDiv.className = 'resultado-seletividade neutro'; resultadoDiv.innerText = 'Relé B desabilitado'; return; }
+            if (tempoA === null || tempoB === null) { resultadoDiv.className = 'resultado-seletividade neutro'; resultadoDiv.innerText = 'Relé não sensibiliza'; return; }
+
+            const deltaT = tempoB - tempoA;
+            if (deltaT >= margemMin) {
+                resultadoDiv.className = 'resultado-seletividade ok'; resultadoDiv.innerText = `Seletivo: Δt = ${deltaT.toFixed(3)} s (≥ ${margemMin} s)`;
+            } else {
+                resultadoDiv.className = 'resultado-seletividade fail'; resultadoDiv.innerText = `Não seletivo: Δt = ${deltaT.toFixed(3)} s (< ${margemMin} s)`;
+            }
+        }
+
+        const todosInputs = [campos.a.curva, campos.a.pickup, campos.a.tms, campos.a.instHab, campos.a.instPickup, campos.a.instTempo, campos.b.habilita, campos.b.curva, campos.b.pickup, campos.b.tms, campos.b.instHab, campos.b.instPickup, campos.b.instTempo, campos.c.habilita, campos.c.pickup, campos.c.tms, iccFaltaInput, margemMinInput];
+        todosInputs.forEach(input => { input.addEventListener('input', atualizarGrafico); input.addEventListener('change', atualizarGrafico); });
+
+        // Comunicação com a API Flask
+        const btnCalcularCurto = document.getElementById('btn_calcular_curto');
+        btnCalcularCurto.addEventListener('click', async () => {
+            const kmInput = parseFloat(document.getElementById('linha_km').value);
+            btnCalcularCurto.innerText = "Calculando...";
+            btnCalcularCurto.style.opacity = "0.7";
+
+            try {
+                const response = await fetch('http://127.0.0.1:5000/calcular_curto', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ distancia_km: kmInput })
+                });
+                if (!response.ok) throw new Error(`Erro HTTP: ${response.status}`);
+                
+                const data = await response.json();
+                if (data.status === "sucesso") {
+                    document.getElementById('icc_falta').value = data.icc_cliente_a;
+                    atualizarGrafico();
+                } else {
+                    alert("Erro no cálculo: " + data.mensagem);
+                }
+            } catch (error) {
+                alert("Falha de conexão. O servidor Flask (app.py) está rodando?");
+                console.error(error);
+            } finally {
+                btnCalcularCurto.innerText = "Calcular Curto (Buscar no Servidor)";
+                btnCalcularCurto.style.opacity = "1";
+            }
+        });
+
+        atualizarGrafico();
+    </script>
+</body>
+</html>
