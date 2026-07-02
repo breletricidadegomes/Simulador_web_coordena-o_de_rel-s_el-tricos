@@ -7,16 +7,16 @@
     <style>
         * { box-sizing: border-box; }
         body { font-family: Arial, sans-serif; display: flex; margin: 0; padding: 20px; background-color: #f4f4f9; gap: 20px; align-items: flex-start; }
-        .painel-controles { width: 320px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); max-height: calc(100vh - 40px); overflow-y: auto; }
+        .painel-controles { width: 340px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); max-height: calc(100vh - 40px); overflow-y: auto; }
         .grafico-container { flex-grow: 1; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .bloco { border: 1px solid #e0e0e0; border-radius: 6px; padding: 14px; margin-bottom: 16px; }
         .bloco h2 { font-size: 15px; margin: 0 0 10px 0; display: flex; align-items: center; gap: 8px; }
         .cor-tag { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
         label { font-weight: bold; display: block; margin-top: 10px; font-size: 13px; color: #333; }
         .valor-inline { font-weight: normal; color: #0052cc; }
-        input[type="range"], input[type="number"], select { width: 100%; margin-top: 4px; padding: 4px; font-size: 13px; }
+        input[type="range"], input[type="number"], select { width: 100%; margin-top: 4px; padding: 4px; font-size: 13px; border: 1px solid #ccc; border-radius: 4px; }
         .linha-dupla { display: flex; gap: 8px; }
-        .linha-dupla > div { flex: 1; }
+        .linha-dupla > div { flex: 1; min-width: 0; }
         .toggle-row { display: flex; align-items: center; gap: 6px; margin-top: 10px; }
         .toggle-row label { margin: 0; }
         .resultado-seletividade { margin-top: 10px; padding: 10px; border-radius: 6px; font-size: 13px; font-weight: bold; text-align: center; }
@@ -137,9 +137,30 @@
         </div>
 
         <div class="bloco">
-            <h2>Análise de Seletividade</h2>
-            <label for="icc_falta">Icc Máximo 3Φ (A)</label>
-            <input type="number" id="icc_falta" value="1422" step="10">
+            <h2>Análise de Seletividade & Assimetria</h2>
+            
+            <div class="linha-dupla">
+                <div>
+                    <label>Icc Máx 3Φ Sim.</label>
+                    <input type="number" id="icc_falta" value="1422" step="10">
+                </div>
+                <div>
+                    <label>Icc Máx 3Φ Assim.</label>
+                    <input type="number" id="icc_falta_assim" value="0" disabled style="background:#eee;">
+                </div>
+            </div>
+            
+            <div class="linha-dupla">
+                <div>
+                    <label>Icc Mín 1Φ-T Sim.</label>
+                    <input type="number" id="icc_min_falta" value="560" step="10">
+                </div>
+                <div>
+                    <label>Icc Mín 1Φ-T Assim.</label>
+                    <input type="number" id="icc_min_falta_assim" value="0" disabled style="background:#eee;">
+                </div>
+            </div>
+
             <label for="margem_min">Margem de coordenação Δt (s)</label>
             <input type="number" id="margem_min" value="0.2" step="0.05">
             <div class="info-tempos" id="infoTempos"></div>
@@ -148,7 +169,7 @@
 
         <div class="bloco" style="border-color: #27ae60;">
             <h2><span class="cor-tag" style="background:#27ae60;"></span>Rede Elétrica (Pandapower)</h2>
-            <p class="dica" style="margin-top: 0;">Conectado à API Flask para cálculo de Icc Máx e Mín.</p>
+            <p class="dica" style="margin-top: 0;">Ligado à API Flask para cálculo de Icc Sim. e Assim.</p>
             <label for="linha_km">Comprimento do Tronco (km):</label>
             <input type="number" id="linha_km" value="5.0" step="0.5">
             <button id="btn_calcular_curto" style="width: 100%; margin-top: 15px; padding: 10px; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
@@ -158,7 +179,7 @@
     </div>
 
     <div class="grafico-container">
-        <div id="coordenograma" style="width:100%; height:850px;"></div>
+        <div id="coordenograma" style="width:100%; height:900px;"></div>
     </div>
 
     <script>
@@ -210,14 +231,13 @@
             c: { habilita: el('c_habilita'), pickup: el('c_pickup'), tms: el('c_tms'), valPickup: el('c_valPickup'), valTms: el('c_valTms') }
         };
         const iccFaltaInput = el('icc_falta');
+        const iccMinFaltaInput = el('icc_min_falta');
         const margemMinInput = el('margem_min');
         const infoTempos = el('infoTempos');
         const resultadoDiv = el('resultadoSeletividade');
 
-        window.iccMinGlobal = null;
-
         function atualizarGrafico() {
-            // Atualiza numerais na tela
+            // Atualiza numerais no ecrã
             campos.a.valPickup.innerText = campos.a.pickup.value;
             campos.a.valTms.innerText = campos.a.tms.value;
             campos.b.valPickup.innerText = campos.b.pickup.value;
@@ -303,12 +323,14 @@
             }
 
             // Plot Linhas de Curto-Circuito (Janela de Operação)
-            const iccFalta = parseFloat(iccFaltaInput.value); 
-            const iccMinFalta = window.iccMinGlobal || (iccFalta * 0.4); 
+            const iccFalta = parseFloat(iccFaltaInput.value) || 0; 
+            const iccMinFalta = parseFloat(iccMinFaltaInput.value) || 0; 
 
             if (iccFalta > 0) {
-                traces.push({ x: [iccFalta, iccFalta], y: [0.001, 1000], mode: 'lines', name: `Icc Máx 3Φ (${iccFalta} A)`, line: { color: '#e74c3c', width: 2, dash: 'dot' }, hoverinfo: 'skip' });
-                traces.push({ x: [iccMinFalta, iccMinFalta], y: [0.001, 1000], mode: 'lines', name: `Icc Mín 1Φ-T (${iccMinFalta} A)`, line: { color: '#f39c12', width: 2, dash: 'dot' }, hoverinfo: 'skip' });
+                traces.push({ x: [iccFalta, iccFalta], y: [0.001, 1000], mode: 'lines', name: `Icc Máx 3Φ Sim. (${iccFalta} A)`, line: { color: '#e74c3c', width: 2, dash: 'dot' }, hoverinfo: 'skip' });
+            }
+            if (iccMinFalta > 0) {
+                traces.push({ x: [iccMinFalta, iccMinFalta], y: [0.001, 1000], mode: 'lines', name: `Icc Mín 1Φ-T Sim. (${iccMinFalta} A)`, line: { color: '#f39c12', width: 2, dash: 'dot' }, hoverinfo: 'skip' });
             }
 
             // Layout Log-Log
@@ -353,7 +375,7 @@
             campos.a.curva, campos.a.pickup, campos.a.tms, campos.a.instHab, campos.a.instPickup, campos.a.instTempo, 
             campos.b.habilita, campos.b.curva, campos.b.pickup, campos.b.tms, campos.b.instHab, campos.b.instPickup, campos.b.instTempo, 
             campos.c.habilita, campos.c.pickup, campos.c.tms, 
-            iccFaltaInput, margemMinInput
+            iccFaltaInput, iccMinFaltaInput, margemMinInput
         ];
         todosInputs.forEach(input => { input.addEventListener('input', atualizarGrafico); input.addEventListener('change', atualizarGrafico); });
 
@@ -361,7 +383,7 @@
         const btnCalcularCurto = document.getElementById('btn_calcular_curto');
         btnCalcularCurto.addEventListener('click', async () => {
             const kmInput = parseFloat(document.getElementById('linha_km').value);
-            btnCalcularCurto.innerText = "Calculando...";
+            btnCalcularCurto.innerText = "A calcular...";
             btnCalcularCurto.style.opacity = "0.7";
 
             try {
@@ -375,14 +397,18 @@
                 const data = await response.json();
                 
                 if (data.status === "sucesso") {
-                    document.getElementById('icc_falta').value = data.icc_max_a;
-                    window.iccMinGlobal = data.icc_min_a;
+                    // Preenche os 4 campos na interface com os dados do Python
+                    document.getElementById('icc_falta').value = data.icc_max_sim_a;
+                    document.getElementById('icc_falta_assim').value = data.icc_max_assim_a;
+                    document.getElementById('icc_min_falta').value = data.icc_min_sim_a;
+                    document.getElementById('icc_min_falta_assim').value = data.icc_min_assim_a;
+                    
                     atualizarGrafico();
                 } else {
                     alert("Erro no cálculo do motor Python: " + data.mensagem);
                 }
             } catch (error) {
-                alert("Falha de conexão. Verifique se o servidor Flask (app.py) está rodando no terminal.");
+                alert("Falha de ligação. Verifique se o servidor Flask (app.py) está a correr no terminal.");
                 console.error(error);
             } finally {
                 btnCalcularCurto.innerText = "Calcular Curto no Servidor";
