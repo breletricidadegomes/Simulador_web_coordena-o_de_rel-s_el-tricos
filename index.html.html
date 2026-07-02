@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Coordenograma - Integração API & Trafo</title>
+    <title>WebCoord - Simulador de Proteção e Seletividade</title>
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     <style>
         * { box-sizing: border-box; }
@@ -32,10 +32,10 @@
     <div class="painel-controles">
         
         <div class="bloco" style="border-color: #8e44ad;">
-            <h2><span class="cor-tag" style="background:#8e44ad;"></span>Transformador (Inrush)</h2>
+            <h2><span class="cor-tag" style="background:#8e44ad;"></span>Transformador (Inrush & ANSI)</h2>
             <div class="toggle-row">
                 <input type="checkbox" id="trafo_habilita" checked>
-                <label for="trafo_habilita">Exibir Ponto de Inrush</label>
+                <label for="trafo_habilita">Exibir Ponto Inrush</label>
             </div>
             <div class="linha-dupla">
                 <div>
@@ -55,6 +55,17 @@
                 <div>
                     <label for="trafo_inrush_tempo">Tempo Inrush (s)</label>
                     <input type="number" id="trafo_inrush_tempo" value="0.1" step="0.01">
+                </div>
+            </div>
+            <div class="linha-dupla">
+                <div>
+                    <label for="trafo_z">Impedância (Z%)</label>
+                    <input type="number" id="trafo_z" value="4.0" step="0.1">
+                </div>
+                <div>
+                    <label for="trafo_habilita_ansi" style="margin-top: 25px;">
+                        <input type="checkbox" id="trafo_habilita_ansi" checked> Exibir ANSI
+                    </label>
                 </div>
             </div>
         </div>
@@ -151,6 +162,7 @@
     </div>
 
     <script>
+        // Constantes das equações de proteção
         const FAMILIAS_CURVA = {
             'IEC-NI': { nome: 'IEC Normal Inversa',        A: 0.14,  B: 0,      p: 0.02 },
             'IEC-MI': { nome: 'IEC Muito Inversa',         A: 13.5,  B: 0,      p: 1.0  },
@@ -185,9 +197,14 @@
             return { x, y };
         }
 
+        // Mapeamento do DOM
         const el = (id) => document.getElementById(id);
         const campos = {
-            trafo: { habilita: el('trafo_habilita'), kva: el('trafo_kva'), kv: el('trafo_kv'), inrushMult: el('trafo_inrush_mult'), inrushTempo: el('trafo_inrush_tempo') },
+            trafo: { 
+                habilita: el('trafo_habilita'), kva: el('trafo_kva'), kv: el('trafo_kv'), 
+                z: el('trafo_z'), habilitaAnsi: el('trafo_habilita_ansi'),
+                inrushMult: el('trafo_inrush_mult'), inrushTempo: el('trafo_inrush_tempo') 
+            },
             a: { curva: el('a_curva'), pickup: el('a_pickup'), tms: el('a_tms'), valPickup: el('a_valPickup'), valTms: el('a_valTms'), instHab: el('a_instHabilita'), instPickup: el('a_instPickup'), instTempo: el('a_instTempo') },
             b: { habilita: el('b_habilita'), curva: el('b_curva'), pickup: el('b_pickup'), tms: el('b_tms'), valPickup: el('b_valPickup'), valTms: el('b_valTms'), instHab: el('b_instHabilita'), instPickup: el('b_instPickup'), instTempo: el('b_instTempo') },
             c: { habilita: el('c_habilita'), pickup: el('c_pickup'), tms: el('c_tms'), valPickup: el('c_valPickup'), valTms: el('c_valTms') }
@@ -200,6 +217,7 @@
         window.iccMinGlobal = null;
 
         function atualizarGrafico() {
+            // Atualiza numerais na tela
             campos.a.valPickup.innerText = campos.a.pickup.value;
             campos.a.valTms.innerText = campos.a.tms.value;
             campos.b.valPickup.innerText = campos.b.pickup.value;
@@ -237,20 +255,55 @@
                 }
             }
 
+            // Pontos ANSI (Limite de Dano do Transformador)
+            if (campos.trafo.habilitaAnsi.checked) {
+                const kva = parseFloat(campos.trafo.kva.value);
+                const kv = parseFloat(campos.trafo.kv.value);
+                const z_pct = parseFloat(campos.trafo.z.value);
+
+                if (kva > 0 && kv > 0 && z_pct > 0) {
+                    const iNominal = kva / (Math.sqrt(3) * kv);
+                    
+                    // Ponto 1: Dano Térmico (Aproximação típica para trafos de distribuição: 5x Inom em 50s)
+                    const iTermico = iNominal * 5;
+                    const tTermico = 50;
+
+                    // Ponto 2: Dano Mecânico (Curto franco no secundário limitando em 2s)
+                    const iMecanico = iNominal * (100 / z_pct);
+                    const tMecanico = 2;
+                    
+                    traces.push({
+                        x: [iTermico, iMecanico], 
+                        y: [tTermico, tMecanico], 
+                        mode: 'lines+markers+text', 
+                        name: 'Limite ANSI', 
+                        text: ['Térmico', 'Mecânico'], 
+                        textposition: 'top right', 
+                        marker: { size: 10, color: '#e67e22', symbol: 'triangle-up' },
+                        line: { color: '#e67e22', width: 2, dash: 'dot' },
+                        hoverinfo: 'name+x+y'
+                    });
+                }
+            }
+
+            // Plot Relé A
             const curvaAData = calcularCurva(pA, tA, curvaA, instHabA, instPickupA, instTempoA);
             traces.push({ x: curvaAData.x, y: curvaAData.y, mode: 'lines', name: `Relé A (${FAMILIAS_CURVA[curvaA].nome})`, line: { color: '#0052cc', width: 2.5 } });
 
+            // Plot Relé B
             if (campos.b.habilita.checked) {
                 const curvaBData = calcularCurva(pB, tB, curvaB, instHabB, instPickupB, instTempoB);
                 traces.push({ x: curvaBData.x, y: curvaBData.y, mode: 'lines', name: `Relé B (${FAMILIAS_CURVA[curvaB].nome})`, line: { color: '#c0392b', width: 2.5 } });
             }
 
+            // Plot Concessionária
             if (campos.c.habilita.checked) {
                 const curvaCData = calcularCurva(pC, tC, 'IEC-NI', false, 0, 0);
                 traces.push({ x: curvaCData.x, y: curvaCData.y, mode: 'lines', name: 'Concessionária', line: { color: '#7f8c8d', width: 2, dash: 'dash' } });
             }
 
-            const iccFalta = parseFloat(iccFaltaInput.value);
+            // Plot Linhas de Curto-Circuito (Janela de Operação)
+            const iccFalta = parseFloat(iccFaltaInput.value); 
             const iccMinFalta = window.iccMinGlobal || (iccFalta * 0.4); 
 
             if (iccFalta > 0) {
@@ -258,11 +311,15 @@
                 traces.push({ x: [iccMinFalta, iccMinFalta], y: [0.001, 1000], mode: 'lines', name: `Icc Mín 1Φ-T (${iccMinFalta} A)`, line: { color: '#f39c12', width: 2, dash: 'dot' }, hoverinfo: 'skip' });
             }
 
+            // Layout Log-Log
             const layout = { title: 'Coordenograma de Proteção', xaxis: { title: 'Corrente (A)', type: 'log', range: [0, 4], gridcolor: '#e0e0e0', dtick: 'D1' }, yaxis: { title: 'Tempo (s)', type: 'log', range: [-2, 2], gridcolor: '#e0e0e0', dtick: 'D1' }, plot_bgcolor: '#ffffff', paper_bgcolor: '#ffffff', legend: { orientation: 'h', y: -0.15 } };
             Plotly.newPlot('coordenograma', traces, layout);
+            
+            // Calcula Seletividade
             atualizarSeletividade(pA, tA, curvaA, instHabA, instPickupA, instTempoA, pB, tB, curvaB, instHabB, instPickupB, instTempoB);
         }
 
+        // Funções de Cálculo Analítico
         function tempoComInstantaneo(i, pickup, tms, curveKey, instHab, instPickup, instTempo) {
             if (instHab && i >= instPickup) return instTempo;
             return tempoAtuacao(i, pickup, tms, curveKey);
@@ -275,12 +332,12 @@
             const tempoB = tempoBAtivo ? tempoComInstantaneo(icc, pB, tB, curvaB, instHabB, instPickupB, instTempoB) : null;
 
             let linhas = [];
-            linhas.push(`Relé A: ${tempoA !== null ? tempoA.toFixed(3) + ' s' : 'não sensibiliza'}`);
-            if (tempoBAtivo) linhas.push(`Relé B: ${tempoB !== null ? tempoB.toFixed(3) + ' s' : 'não sensibiliza'}`);
+            linhas.push(`Relé A (Principal): ${tempoA !== null ? tempoA.toFixed(3) + ' s' : 'não sensibiliza'}`);
+            if (tempoBAtivo) linhas.push(`Relé B (Retaguarda): ${tempoB !== null ? tempoB.toFixed(3) + ' s' : 'não sensibiliza'}`);
             infoTempos.innerHTML = linhas.join('<br>');
 
             if (!tempoBAtivo) { resultadoDiv.className = 'resultado-seletividade neutro'; resultadoDiv.innerText = 'Relé B desabilitado'; return; }
-            if (tempoA === null || tempoB === null) { resultadoDiv.className = 'resultado-seletividade neutro'; resultadoDiv.innerText = 'Proteção não sensibiliza'; return; }
+            if (tempoA === null || tempoB === null) { resultadoDiv.className = 'resultado-seletividade neutro'; resultadoDiv.innerText = 'Proteção não sensibiliza o curto'; return; }
 
             const deltaT = tempoB - tempoA;
             if (deltaT >= margemMin) {
@@ -290,8 +347,9 @@
             }
         }
 
+        // Gatilhos de Eventos UI
         const todosInputs = [
-            campos.trafo.habilita, campos.trafo.kva, campos.trafo.kv, campos.trafo.inrushMult, campos.trafo.inrushTempo,
+            campos.trafo.habilita, campos.trafo.kva, campos.trafo.kv, campos.trafo.z, campos.trafo.habilitaAnsi, campos.trafo.inrushMult, campos.trafo.inrushTempo,
             campos.a.curva, campos.a.pickup, campos.a.tms, campos.a.instHab, campos.a.instPickup, campos.a.instTempo, 
             campos.b.habilita, campos.b.curva, campos.b.pickup, campos.b.tms, campos.b.instHab, campos.b.instPickup, campos.b.instTempo, 
             campos.c.habilita, campos.c.pickup, campos.c.tms, 
@@ -324,7 +382,7 @@
                     alert("Erro no cálculo do motor Python: " + data.mensagem);
                 }
             } catch (error) {
-                alert("Falha de conexão. Verifique se o servidor Flask (app.py) está rodando.");
+                alert("Falha de conexão. Verifique se o servidor Flask (app.py) está rodando no terminal.");
                 console.error(error);
             } finally {
                 btnCalcularCurto.innerText = "Calcular Curto no Servidor";
@@ -332,6 +390,7 @@
             }
         });
 
+        // Inicializa o gráfico na primeira abertura da página
         atualizarGrafico();
     </script>
 </body>
