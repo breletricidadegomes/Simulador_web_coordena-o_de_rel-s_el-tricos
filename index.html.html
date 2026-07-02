@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Coordenograma - Integração API</title>
+    <title>Coordenograma - Integração API & Trafo</title>
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     <style>
         * { box-sizing: border-box; }
@@ -30,6 +30,35 @@
 <body>
 
     <div class="painel-controles">
+        
+        <div class="bloco" style="border-color: #8e44ad;">
+            <h2><span class="cor-tag" style="background:#8e44ad;"></span>Transformador (Inrush)</h2>
+            <div class="toggle-row">
+                <input type="checkbox" id="trafo_habilita" checked>
+                <label for="trafo_habilita">Exibir Ponto de Inrush</label>
+            </div>
+            <div class="linha-dupla">
+                <div>
+                    <label for="trafo_kva">Potência (kVA)</label>
+                    <input type="number" id="trafo_kva" value="150" step="10">
+                </div>
+                <div>
+                    <label for="trafo_kv">Tensão Prim. (kV)</label>
+                    <input type="number" id="trafo_kv" value="13.8" step="0.1">
+                </div>
+            </div>
+            <div class="linha-dupla">
+                <div>
+                    <label for="trafo_inrush_mult">Mult. Inrush (x In)</label>
+                    <input type="number" id="trafo_inrush_mult" value="8" step="1">
+                </div>
+                <div>
+                    <label for="trafo_inrush_tempo">Tempo Inrush (s)</label>
+                    <input type="number" id="trafo_inrush_tempo" value="0.1" step="0.01">
+                </div>
+            </div>
+        </div>
+
         <div class="bloco">
             <h2><span class="cor-tag" style="background:#0052cc;"></span>Relé A (Principal)</h2>
             <label for="a_curva">Curva de Proteção</label>
@@ -50,7 +79,7 @@
                 <label for="a_instHabilita">Habilitar instantâneo</label>
             </div>
             <div class="linha-dupla">
-                <div><label for="a_instPickup">Instantâneo (A)</label><input type="number" id="a_instPickup" value="4000"></div>
+                <div><label for="a_instPickup">Inst. (A)</label><input type="number" id="a_instPickup" value="4000"></div>
                 <div><label for="a_instTempo">T. inst. (s)</label><input type="number" id="a_instTempo" value="0.20" step="0.01"></div>
             </div>
         </div>
@@ -79,7 +108,7 @@
                 <label for="b_instHabilita">Habilitar instantâneo</label>
             </div>
             <div class="linha-dupla">
-                <div><label for="b_instPickup">Instantâneo (A)</label><input type="number" id="b_instPickup" value="400"></div>
+                <div><label for="b_instPickup">Inst. (A)</label><input type="number" id="b_instPickup" value="400"></div>
                 <div><label for="b_instTempo">T. inst. (s)</label><input type="number" id="b_instTempo" value="0.10" step="0.01"></div>
             </div>
         </div>
@@ -90,7 +119,7 @@
                 <input type="checkbox" id="c_habilita" checked>
                 <label for="c_habilita">Exibir curva</label>
             </div>
-            <label>Pickup / Elom (A): <span class="valor-inline" id="c_valPickup">400</span></label>
+            <label>Pickup / Elo (A): <span class="valor-inline" id="c_valPickup">400</span></label>
             <input type="range" id="c_pickup" min="10" max="1000" step="10" value="400">
             <label>TMS (Dial de Tempo): <span class="valor-inline" id="c_valTms">1.0</span></label>
             <input type="range" id="c_tms" min="0.05" max="2.0" step="0.05" value="1.0">
@@ -98,7 +127,7 @@
 
         <div class="bloco">
             <h2>Análise de Seletividade</h2>
-            <label for="icc_falta">Icc no ponto de falta (A)</label>
+            <label for="icc_falta">Icc Máximo 3Φ (A)</label>
             <input type="number" id="icc_falta" value="1422" step="10">
             <label for="margem_min">Margem de coordenação Δt (s)</label>
             <input type="number" id="margem_min" value="0.2" step="0.05">
@@ -107,18 +136,18 @@
         </div>
 
         <div class="bloco" style="border-color: #27ae60;">
-            <h2><span class="cor-tag" style="background:#27ae60;"></span>Rede Elétrica (Simulador)</h2>
-            <p class="dica" style="margin-top: 0;">Conectado à API Flask + Pandapower</p>
+            <h2><span class="cor-tag" style="background:#27ae60;"></span>Rede Elétrica (Pandapower)</h2>
+            <p class="dica" style="margin-top: 0;">Conectado à API Flask para cálculo de Icc Máx e Mín.</p>
             <label for="linha_km">Comprimento do Tronco (km):</label>
             <input type="number" id="linha_km" value="5.0" step="0.5">
             <button id="btn_calcular_curto" style="width: 100%; margin-top: 15px; padding: 10px; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
-                Calcular Curto (Buscar no Servidor)
+                Calcular Curto no Servidor
             </button>
         </div>
     </div>
 
     <div class="grafico-container">
-        <div id="coordenograma" style="width:100%; height:750px;"></div>
+        <div id="coordenograma" style="width:100%; height:850px;"></div>
     </div>
 
     <script>
@@ -158,6 +187,7 @@
 
         const el = (id) => document.getElementById(id);
         const campos = {
+            trafo: { habilita: el('trafo_habilita'), kva: el('trafo_kva'), kv: el('trafo_kv'), inrushMult: el('trafo_inrush_mult'), inrushTempo: el('trafo_inrush_tempo') },
             a: { curva: el('a_curva'), pickup: el('a_pickup'), tms: el('a_tms'), valPickup: el('a_valPickup'), valTms: el('a_valTms'), instHab: el('a_instHabilita'), instPickup: el('a_instPickup'), instTempo: el('a_instTempo') },
             b: { habilita: el('b_habilita'), curva: el('b_curva'), pickup: el('b_pickup'), tms: el('b_tms'), valPickup: el('b_valPickup'), valTms: el('b_valTms'), instHab: el('b_instHabilita'), instPickup: el('b_instPickup'), instTempo: el('b_instTempo') },
             c: { habilita: el('c_habilita'), pickup: el('c_pickup'), tms: el('c_tms'), valPickup: el('c_valPickup'), valTms: el('c_valTms') }
@@ -166,6 +196,8 @@
         const margemMinInput = el('margem_min');
         const infoTempos = el('infoTempos');
         const resultadoDiv = el('resultadoSeletividade');
+
+        window.iccMinGlobal = null;
 
         function atualizarGrafico() {
             campos.a.valPickup.innerText = campos.a.pickup.value;
@@ -180,6 +212,31 @@
             const pC = parseFloat(campos.c.pickup.value), tC = parseFloat(campos.c.tms.value);
 
             const traces = [];
+
+            // Ponto de Inrush do Transformador
+            if (campos.trafo.habilita.checked) {
+                const kva = parseFloat(campos.trafo.kva.value);
+                const kv = parseFloat(campos.trafo.kv.value);
+                const multInrush = parseFloat(campos.trafo.inrushMult.value);
+                const tInrush = parseFloat(campos.trafo.inrushTempo.value);
+
+                if (kva > 0 && kv > 0) {
+                    const iNominal = kva / (Math.sqrt(3) * kv);
+                    const iInrush = iNominal * multInrush;
+                    
+                    traces.push({
+                        x: [iInrush], 
+                        y: [tInrush], 
+                        mode: 'markers+text', 
+                        name: `Inrush (${iInrush.toFixed(1)} A)`, 
+                        text: [' Inrush'], 
+                        textposition: 'middle right', 
+                        marker: { size: 10, color: '#8e44ad', symbol: 'circle' },
+                        hoverinfo: 'name+x+y'
+                    });
+                }
+            }
+
             const curvaAData = calcularCurva(pA, tA, curvaA, instHabA, instPickupA, instTempoA);
             traces.push({ x: curvaAData.x, y: curvaAData.y, mode: 'lines', name: `Relé A (${FAMILIAS_CURVA[curvaA].nome})`, line: { color: '#0052cc', width: 2.5 } });
 
@@ -194,8 +251,11 @@
             }
 
             const iccFalta = parseFloat(iccFaltaInput.value);
+            const iccMinFalta = window.iccMinGlobal || (iccFalta * 0.4); 
+
             if (iccFalta > 0) {
-                traces.push({ x: [iccFalta, iccFalta], y: [0.001, 1000], mode: 'lines', name: `Icc (${iccFalta} A)`, line: { color: '#27ae60', width: 1.5, dash: 'dot' }, hoverinfo: 'skip' });
+                traces.push({ x: [iccFalta, iccFalta], y: [0.001, 1000], mode: 'lines', name: `Icc Máx 3Φ (${iccFalta} A)`, line: { color: '#e74c3c', width: 2, dash: 'dot' }, hoverinfo: 'skip' });
+                traces.push({ x: [iccMinFalta, iccMinFalta], y: [0.001, 1000], mode: 'lines', name: `Icc Mín 1Φ-T (${iccMinFalta} A)`, line: { color: '#f39c12', width: 2, dash: 'dot' }, hoverinfo: 'skip' });
             }
 
             const layout = { title: 'Coordenograma de Proteção', xaxis: { title: 'Corrente (A)', type: 'log', range: [0, 4], gridcolor: '#e0e0e0', dtick: 'D1' }, yaxis: { title: 'Tempo (s)', type: 'log', range: [-2, 2], gridcolor: '#e0e0e0', dtick: 'D1' }, plot_bgcolor: '#ffffff', paper_bgcolor: '#ffffff', legend: { orientation: 'h', y: -0.15 } };
@@ -220,7 +280,7 @@
             infoTempos.innerHTML = linhas.join('<br>');
 
             if (!tempoBAtivo) { resultadoDiv.className = 'resultado-seletividade neutro'; resultadoDiv.innerText = 'Relé B desabilitado'; return; }
-            if (tempoA === null || tempoB === null) { resultadoDiv.className = 'resultado-seletividade neutro'; resultadoDiv.innerText = 'Relé não sensibiliza'; return; }
+            if (tempoA === null || tempoB === null) { resultadoDiv.className = 'resultado-seletividade neutro'; resultadoDiv.innerText = 'Proteção não sensibiliza'; return; }
 
             const deltaT = tempoB - tempoA;
             if (deltaT >= margemMin) {
@@ -230,7 +290,13 @@
             }
         }
 
-        const todosInputs = [campos.a.curva, campos.a.pickup, campos.a.tms, campos.a.instHab, campos.a.instPickup, campos.a.instTempo, campos.b.habilita, campos.b.curva, campos.b.pickup, campos.b.tms, campos.b.instHab, campos.b.instPickup, campos.b.instTempo, campos.c.habilita, campos.c.pickup, campos.c.tms, iccFaltaInput, margemMinInput];
+        const todosInputs = [
+            campos.trafo.habilita, campos.trafo.kva, campos.trafo.kv, campos.trafo.inrushMult, campos.trafo.inrushTempo,
+            campos.a.curva, campos.a.pickup, campos.a.tms, campos.a.instHab, campos.a.instPickup, campos.a.instTempo, 
+            campos.b.habilita, campos.b.curva, campos.b.pickup, campos.b.tms, campos.b.instHab, campos.b.instPickup, campos.b.instTempo, 
+            campos.c.habilita, campos.c.pickup, campos.c.tms, 
+            iccFaltaInput, margemMinInput
+        ];
         todosInputs.forEach(input => { input.addEventListener('input', atualizarGrafico); input.addEventListener('change', atualizarGrafico); });
 
         // Comunicação com a API Flask
@@ -246,20 +312,22 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ distancia_km: kmInput })
                 });
-                if (!response.ok) throw new Error(`Erro HTTP: ${response.status}`);
                 
+                if (!response.ok) throw new Error(`Erro HTTP: ${response.status}`);
                 const data = await response.json();
+                
                 if (data.status === "sucesso") {
-                    document.getElementById('icc_falta').value = data.icc_cliente_a;
+                    document.getElementById('icc_falta').value = data.icc_max_a;
+                    window.iccMinGlobal = data.icc_min_a;
                     atualizarGrafico();
                 } else {
-                    alert("Erro no cálculo: " + data.mensagem);
+                    alert("Erro no cálculo do motor Python: " + data.mensagem);
                 }
             } catch (error) {
-                alert("Falha de conexão. O servidor Flask (app.py) está rodando?");
+                alert("Falha de conexão. Verifique se o servidor Flask (app.py) está rodando.");
                 console.error(error);
             } finally {
-                btnCalcularCurto.innerText = "Calcular Curto (Buscar no Servidor)";
+                btnCalcularCurto.innerText = "Calcular Curto no Servidor";
                 btnCalcularCurto.style.opacity = "1";
             }
         });
